@@ -72,6 +72,7 @@ export const register = async (req: AuthRequest, res: Response, next: NextFuncti
 
 export const login = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
+    console.log('🔐 Login attempt:', req.body.email);
     const { email, password } = req.body;
 
     if (!email || !password) {
@@ -88,7 +89,10 @@ export const login = async (req: AuthRequest, res: Response, next: NextFunction)
       },
     });
 
+    console.log('User found:', user ? 'Yes' : 'No');
+
     if (!user) {
+      console.log('❌ User not found:', email);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
@@ -96,12 +100,15 @@ export const login = async (req: AuthRequest, res: Response, next: NextFunction)
     const isValidPassword = await bcrypt.compare(password, user.password);
 
     if (!isValidPassword) {
+      console.log('❌ Invalid password for:', email);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     // Generate tokens
     const token = generateToken(user.id);
     const refreshToken = generateRefreshToken(user.id);
+
+    console.log('✅ Login successful for:', email);
 
     // Save refresh token
     await prisma.refreshToken.create({

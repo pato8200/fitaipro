@@ -82,6 +82,7 @@ app.use(express.urlencoded({ extended: true }));
 // Request logging middleware
 app.use((req: Request, res: Response, next: NextFunction) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  console.log('Headers:', req.headers);
   next();
 });
 
@@ -97,7 +98,12 @@ app.use('/api/analytics', analyticsRoutes);
 
 // Health check endpoint
 app.get('/health', (req: Request, res: Response) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    port: PORT
+  });
 });
 
 // Error handling middleware

@@ -17,7 +17,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const apiUrl = 'https://fitai-pro-api.onrender.com';
       const response = await fetch(`${apiUrl}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

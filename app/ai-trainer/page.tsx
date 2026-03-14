@@ -47,7 +47,7 @@ export default function AITrainerPage() {
 
     try {
       const token = localStorage.getItem('token');
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const apiUrl = 'https://fitai-pro-api.onrender.com';
       
       // Call real AI backend
       const response = await fetch(`${apiUrl}/api/ai/chat`, {

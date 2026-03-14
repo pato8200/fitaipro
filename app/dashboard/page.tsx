@@ -83,7 +83,7 @@ export default function DashboardPage() {
       setError(null); // Clear previous errors
       const token = localStorage.getItem('token');
       
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const apiUrl = 'https://fitai-pro-api.onrender.com';
       
       const response = await fetch(`${apiUrl}/api/analytics/gym/${gymId}`, {
         headers: {

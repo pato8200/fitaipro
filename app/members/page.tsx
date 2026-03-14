@@ -45,7 +45,7 @@ export default function MembersPage() {
   const fetchMembers = async (token: string, userData: any) => {
     try {
       setLoading(true);
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const apiUrl = 'https://fitai-pro-api.onrender.com';
       
       // Get gym ID from user data
       let gymId = userData.gym?.id || userData.memberProfile?.gymId;

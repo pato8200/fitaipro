@@ -1,0 +1,435 @@
+// FitAI Pro - AI-Powered Gym Management System Schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User & Authentication Models
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  firstName String
+  lastName  String
+  role      UserRole @default(MEMBER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  gymId     String?
+  gym       Gym?     @relation()
+  
+  memberProfile    MemberProfile?
+  trainerProfile   TrainerProfile?
+  staffProfile     StaffProfile?
+  refreshTokens    RefreshToken[]
+  aiConversations  AIConversation[]
+  workoutLogs      WorkoutLog[]
+  
+  @@index([email])
+  @@index([gymId])
+}
+
+enum UserRole {
+  ADMIN
+  GYM_OWNER
+  TRAINER
+  MEMBER
+  STAFF
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+}
+
+// Gym Models
+model Gym {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  address     String
+  city        String
+  state       String
+  zipCode     String
+  phone       String
+  email       String
+  logoUrl     String?
+  coverImageUrl String?
+  timezone    String   @default("America/New_York")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  ownerId     String @unique
+  owner       User     @relation(fields: [ownerId], references: [id])
+  
+  members       MemberProfile[]
+  trainers      TrainerProfile[]
+  staff         StaffProfile[]
+  memberships   MembershipPlan[]
+  classes       FitnessClass[]
+  equipment     Equipment[]
+  subscriptions Subscription[]
+  metrics       GymMetric[]
+  
+  @@index([ownerId])
+}
+
+// Member Models
+model MemberProfile {
+  id                String    @id @default(cuid())
+  userId            String    @unique
+  user              User      @relation(fields: [userId], references: [id])
+  gymId             String
+  gym               Gym       @relation(fields: [gymId], references: [id])
+  membershipTier    String
+  startDate         DateTime  @default(now())
+  endDate           DateTime?
+  status            MemberStatus @default(ACTIVE)
+  dateOfBirth       DateTime?
+  phone             String?
+  emergencyContact  String?
+  emergencyPhone    String?
+  medicalNotes      String?
+  fitnessGoals      String[]
+  height            Float?
+  weight            Float?
+  bodyFatPercentage Float?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  attendance        Attendance[]
+  bookings          ClassBooking[]
+  subscription      Subscription?
+  workouts          WorkoutLog[]
+  goals             Goal[]
+  
+  @@index([userId])
+  @@index([gymId])
+}
+
+enum MemberStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  EXPIRED
+  TRIAL
+}
+
+model TrainerProfile {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id])
+  gymId         String
+  gym           Gym      @relation(fields: [gymId], references: [id])
+  specialization String[]
+  bio           String?
+  certifications String[]
+  hourlyRate    Float?
+  profileImage  String?
+  isAvailable   Boolean  @default(true)
+  rating        Float    @default(0.0)
+  totalSessions Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  classes       FitnessClass[]
+  
+  @@index([userId])
+  @@index([gymId])
+}
+
+model StaffProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  gymId     String
+  gym       Gym      @relation(fields: [gymId], references: [id])
+  position  String
+  schedule  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([gymId])
+}
+
+// Membership & Subscription Models
+model MembershipPlan {
+  id          String   @id @default(cuid())
+  gymId       String
+  gym         Gym      @relation(fields: [gymId], references: [id])
+  name        String
+  description String?
+  price       Float
+  duration    Int // in months
+  features    String[]
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  subscriptions Subscription[]
+  
+  @@index([gymId])
+}
+
+model Subscription {
+  id              String   @id @default(cuid())
+  gymId           String
+  gym             Gym      @relation(fields: [gymId], references: [id])
+  memberId        String @unique
+  member          MemberProfile @relation(fields: [memberId], references: [id])
+  planId          String
+  plan            MembershipPlan @relation(fields: [planId], references: [id])
+  status          SubscriptionStatus @default(ACTIVE)
+  startDate       DateTime @default(now())
+  endDate         DateTime
+  cancelAtPeriodEnd Boolean @default(false)
+  stripeSubscriptionId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  payments Payment[]
+  
+  @@index([memberId])
+  @@index([gymId])
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  INACTIVE
+  CANCELLED
+  EXPIRED
+  PAST_DUE
+}
+
+model Payment {
+  id                String   @id @default(cuid())
+  subscriptionId    String
+  subscription      Subscription @relation(fields: [subscriptionId], references: [id])
+  amount            Float
+  currency          String   @default("USD")
+  status            PaymentStatus @default(PENDING)
+  paymentDate       DateTime @default(now())
+  dueDate           DateTime
+  paidAt            DateTime?
+  stripePaymentId   String?
+  method            String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@index([subscriptionId])
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+// Fitness Class Models
+model FitnessClass {
+  id          String   @id @default(cuid())
+  gymId       String
+  gym         Gym      @relation(fields: [gymId], references: [id])
+  trainerId   String
+  trainer     TrainerProfile @relation(fields: [trainerId], references: [id])
+  name        String
+  description String?
+  category    String
+  level       String   @default("ALL_LEVELS")
+  duration    Int // in minutes
+  capacity    Int
+  startTime   DateTime
+  endTime     DateTime
+  recurrence  String? // DAILY, WEEKLY, MONTHLY
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  bookings    ClassBooking[]
+  
+  @@index([gymId])
+  @@index([trainerId])
+}
+
+model ClassBooking {
+  id        String   @id @default(cuid())
+  classId   String
+  class     FitnessClass @relation(fields: [classId], references: [id])
+  memberId  String
+  member    MemberProfile @relation(fields: [memberId], references: [id])
+  status    BookingStatus @default(CONFIRMED)
+  checkedIn Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([classId])
+  @@index([memberId])
+  @@unique([classId, memberId])
+}
+
+enum BookingStatus {
+  CONFIRMED
+  CANCELLED
+  WAITLIST
+  COMPLETED
+}
+
+// Attendance Tracking
+model Attendance {
+  id        String   @id @default(cuid())
+  memberId  String
+  member    MemberProfile @relation(fields: [memberId], references: [id])
+  checkIn   DateTime @default(now())
+  checkOut  DateTime?
+  deviceInfo String?
+  
+  @@index([memberId])
+  @@index([checkIn])
+}
+
+// Equipment Management
+model Equipment {
+  id          String   @id @default(cuid())
+  gymId       String
+  gym         Gym      @relation(fields: [gymId], references: [id])
+  name        String
+  category    String
+  brand       String?
+  model       String?
+  serialNumber String?
+  purchaseDate DateTime?
+  warrantyExpiry DateTime?
+  status      EquipmentStatus @default(ACTIVE)
+  lastMaintenance DateTime?
+  nextMaintenance DateTime?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  maintenanceLogs MaintenanceLog[]
+  
+  @@index([gymId])
+}
+
+enum EquipmentStatus {
+  ACTIVE
+  MAINTENANCE
+  BROKEN
+  RETIRED
+}
+
+model MaintenanceLog {
+  id          String   @id @default(cuid())
+  equipmentId String
+  equipment   Equipment @relation(fields: [equipmentId], references: [id])
+  type        String
+  description String
+  cost        Float?
+  performedBy String?
+  performedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  
+  @@index([equipmentId])
+}
+
+// Workout & AI Features
+model WorkoutLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  memberId  String?
+  member    MemberProfile? @relation(fields: [memberId], references: [id])
+  type      String // AI_GENERATED, CUSTOM, TEMPLATE
+  name      String
+  duration  Int? // minutes
+  calories  Int?
+  notes     String?
+  rating    Int? // 1-5
+  completedAt DateTime @default(now())
+  createdAt DateTime @default(now())
+  
+  exercises WorkoutExercise[]
+  
+  @@index([userId])
+  @@index([memberId])
+}
+
+model WorkoutExercise {
+  id        String   @id @default(cuid())
+  workoutId String
+  workout   WorkoutLog @relation(fields: [workoutId], references: [id])
+  name      String
+  sets      Int
+  reps      Int
+  weight    Float?
+  restTime  Int? // seconds
+  notes     String?
+  order     Int
+  
+  @@index([workoutId])
+}
+
+model Goal {
+  id        String   @id @default(cuid())
+  memberId  String
+  member    MemberProfile @relation(fields: [memberId], references: [id])
+  type      String // WEIGHT_LOSS, MUSCLE_GAIN, ENDURANCE, etc.
+  target    Float
+  current   Float?
+  unit      String // kg, lbs, km, etc.
+  deadline  DateTime?
+  status    GoalStatus @default(IN_PROGRESS)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([memberId])
+}
+
+enum GoalStatus {
+  IN_PROGRESS
+  COMPLETED
+  ABANDONED
+}
+
+// AI Conversation History
+model AIConversation {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  role      String // user, assistant, system
+  message   String
+  metadata  Json? // context, workout data, etc.
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// Analytics & Metrics
+model GymMetric {
+  id        String   @id @default(cuid())
+  gymId     String
+  gym       Gym      @relation(fields: [gymId], references: [id])
+  metricType String
+  value     Float
+  date      DateTime @default(now())
+  metadata  Json?
+  createdAt DateTime @default(now())
+  
+  @@index([gymId])
+  @@index([date])
+}

@@ -1,0 +1,447 @@
+/**
+ * FitAI Pro - Demo Environment Seed Script
+ * 
+ * This script populates the database with realistic demo data for:
+ * - 3 gym locations
+ * - 150+ members across all gyms
+ * - 3 months of attendance history
+ * - Revenue data showing growth trend
+ * - AI conversation examples
+ * 
+ * Usage: 
+ *   npx ts-node prisma/seed-demo.ts
+ */
+
+import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
+
+const prisma = new PrismaClient();
+
+// Utility functions
+const randomDate = (start: Date, end: Date) => {
+  return new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
+};
+
+const randomInt = (min: number, max: number) => {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+};
+
+const randomChoice = <T,>(array: readonly T[]): T => {
+  return array[Math.floor(Math.random() * array.length)];
+};
+
+// Sample data
+const firstNames = [
+  'James', 'Mary', 'John', 'Patricia', 'Robert', 'Jennifer', 'Michael', 'Linda',
+  'William', 'Elizabeth', 'David', 'Barbara', 'Richard', 'Susan', 'Joseph', 'Jessica',
+  'Thomas', 'Sarah', 'Charles', 'Karen', 'Christopher', 'Nancy', 'Daniel', 'Lisa',
+  'Matthew', 'Betty', 'Anthony', 'Margaret', 'Mark', 'Sandra', 'Donald', 'Ashley',
+  'Steven', 'Kimberly', 'Paul', 'Emily', 'Andrew', 'Donna', 'Joshua', 'Michelle'
+];
+
+const lastNames = [
+  'Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis',
+  'Rodriguez', 'Martinez', 'Hernandez', 'Lopez', 'Gonzalez', 'Wilson', 'Anderson',
+  'Thomas', 'Taylor', 'Moore', 'Jackson', 'Martin', 'Lee', 'Perez', 'Thompson',
+  'White', 'Harris', 'Sanchez', 'Clark', 'Ramirez', 'Lewis', 'Robinson', 'Walker'
+];
+
+const emailDomains = ['gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'icloud.com'];
+
+const fitnessGoals = [
+  'weight_loss', 'muscle_gain', 'endurance', 'strength', 'flexibility',
+  'general_fitness', 'sports_performance', 'rehabilitation'
+];
+
+const membershipTiers: string[] = ['BASIC', 'PRO', 'ELITE'];
+const memberStatuses: string[] = ['ACTIVE', 'INACTIVE', 'TRIAL', 'SUSPENDED'];
+
+async function main() {
+  console.log('🌱 Starting FitAI Pro demo data seeding...');
+
+  // Clear existing data (optional - comment out if you want to keep existing data)
+  console.log('🗑️  Clearing existing demo data...');
+  await prisma.aIConversation.deleteMany();
+  await prisma.workoutLog.deleteMany();
+  await prisma.attendance.deleteMany();
+  await prisma.classBooking.deleteMany();
+  await prisma.fitnessClass.deleteMany();
+  await prisma.payment.deleteMany();
+  await prisma.subscription.deleteMany();
+  await prisma.memberProfile.deleteMany();
+  await prisma.trainerProfile.deleteMany();
+  await prisma.staffProfile.deleteMany();
+  await prisma.user.deleteMany({ where: { role: { not: 'ADMIN' } } });
+
+  // Create Admin User
+  console.log('👤 Creating admin user...');
+  const adminPassword = await bcrypt.hash('Admin123!', 12);
+  const adminUser = await prisma.user.create({
+    data: {
+      email: 'admin@fitaipro.com',
+      password: adminPassword,
+      firstName: 'System',
+      lastName: 'Administrator',
+      role: 'ADMIN',
+    },
+  });
+  console.log(`✅ Admin created: ${adminUser.email}`);
+
+  // Create Gym Owners and Gyms
+  console.log('🏋️ Creating gym owners and gyms...');
+  const gymsData = [
+    {
+      name: 'FitLife Gym Downtown',
+      city: 'Los Angeles',
+      state: 'CA',
+      ownerEmail: 'owner.downtown@fitlife.com',
+    },
+    {
+      name: 'FitLife Gym Westside',
+      city: 'Santa Monica',
+      state: 'CA',
+      ownerEmail: 'owner.westside@fitlife.com',
+    },
+    {
+      name: 'Iron Paradise Fitness',
+      city: 'Venice Beach',
+      state: 'CA',
+      ownerEmail: 'owner@ironparadise.com',
+    },
+  ];
+
+  const gyms = [];
+  for (const gymData of gymsData) {
+    const ownerPassword = await bcrypt.hash('Owner123!', 12);
+    const owner = await prisma.user.create({
+      data: {
+        email: gymData.ownerEmail,
+        password: ownerPassword,
+        firstName: randomChoice(firstNames),
+        lastName: randomChoice(lastNames),
+        role: 'GYM_OWNER',
+      },
+    });
+
+    const gym = await prisma.gym.create({
+      data: {
+        name: gymData.name,
+        description: `Premium fitness center in ${gymData.city} offering state-of-the-art equipment and expert training.`,
+        address: `${randomInt(100, 999)} Fitness Blvd`,
+        city: gymData.city,
+        state: gymData.state,
+        zipCode: `${randomInt(90000, 99999)}`,
+        phone: `+1-555-${randomInt(100, 999)}-${randomInt(1000, 9999)}`,
+        email: `contact@${gymData.name.toLowerCase().replace(/\s/g, '')}.com`,
+        timezone: 'America/Los_Angeles',
+        ownerId: owner.id,
+        isActive: true,
+      },
+    });
+
+    gyms.push(gym);
+    console.log(`✅ Gym created: ${gym.name} (${gym.city})`);
+  }
+
+  // Create Members for each gym
+  console.log('👥 Creating members...');
+  const totalMembers = 150;
+  const membersPerGym = Math.floor(totalMembers / gyms.length);
+  
+  let allMembers = [];
+  
+  for (let i = 0; i < gyms.length; i++) {
+    const gym = gyms[i];
+    
+    for (let j = 0; j < membersPerGym; j++) {
+      const firstName = randomChoice(firstNames);
+      const lastName = randomChoice(lastNames);
+      const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}${j}@${randomChoice(emailDomains)}`;
+      
+      const password = await bcrypt.hash('Member123!', 12);
+      
+      const memberUser = await prisma.user.create({
+        data: {
+          email,
+          password,
+          firstName,
+          lastName,
+          role: 'MEMBER',
+        },
+      });
+
+      const startDate = randomDate(new Date(2025, 0, 1), new Date());
+      const membershipTier = randomChoice(membershipTiers);
+      
+      const memberProfile = await prisma.memberProfile.create({
+        data: {
+          userId: memberUser.id,
+          gymId: gym.id,
+          membershipTier,
+          status: randomChoice(memberStatuses) as any,
+          startDate,
+          endDate: new Date(startDate.getTime() + 365 * 24 * 60 * 60 * 1000), // 1 year
+          fitnessGoals: [randomChoice(fitnessGoals), randomChoice(fitnessGoals)],
+          height: randomInt(150, 200),
+          weight: randomInt(50, 120),
+          phone: `+1-555-${randomInt(100, 999)}-${randomInt(1000, 9999)}`,
+        },
+      });
+
+      // Create subscription
+      const planPrices: any = { BASIC: 29.99, PRO: 49.99, ELITE: 99.99 };
+      await prisma.subscription.create({
+        data: {
+          gymId: gym.id,
+          memberId: memberProfile.id,
+          planId: await prisma.membershipPlan.create({
+            data: {
+              gymId: gym.id,
+              name: `${membershipTier} Membership`,
+              price: planPrices[membershipTier],
+              duration: 1,
+              features: [`${membershipTier} tier access`, 'All gym equipment'],
+            },
+          }).then(p => p.id),
+          status: 'ACTIVE',
+          startDate: memberProfile.startDate,
+          endDate: new Date(memberProfile.startDate.getTime() + 365 * 24 * 60 * 60 * 1000),
+        },
+      });
+
+      allMembers.push(memberProfile);
+    }
+  }
+
+  console.log(`✅ Created ${allMembers.length} members`);
+
+  // Create Attendance Records (last 3 months)
+  console.log('📊 Creating attendance records...');
+  const threeMonthsAgo = new Date();
+  threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+  
+  const activeMembers = allMembers.filter(m => m.status === 'ACTIVE');
+  const attendanceRecords = [];
+  
+  for (const member of activeMembers) {
+    // Each active member attends 2-4 times per week on average
+    const attendanceCount = randomInt(20, 50); // Over 3 months
+    
+    for (let i = 0; i < attendanceCount; i++) {
+      const checkInDate = randomDate(threeMonthsAgo, new Date());
+      
+      attendanceRecords.push(
+        prisma.attendance.create({
+          data: {
+            memberId: member.id,
+            checkIn: checkInDate,
+            deviceInfo: randomChoice(['iPhone 14 Pro', 'Samsung Galaxy S23', 'Pixel 7', 'Web Check-in']),
+          },
+        })
+      );
+    }
+  }
+  
+  await Promise.all(attendanceRecords);
+  console.log(`✅ Created ${attendanceRecords.length} attendance records`);
+
+  // Create Trainers
+  console.log('🏃 Creating trainers...');
+  const trainers = [];
+  
+  for (const gym of gyms) {
+    for (let i = 0; i < 3; i++) {
+      const firstName = randomChoice(firstNames);
+      const lastName = randomChoice(lastNames);
+      
+      const trainerUser = await prisma.user.create({
+        data: {
+          email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@trainer.com`,
+          password: await bcrypt.hash('Trainer123!', 12),
+          firstName,
+          lastName,
+          role: 'TRAINER',
+        },
+      });
+
+      const trainer = await prisma.trainerProfile.create({
+        data: {
+          userId: trainerUser.id,
+          gymId: gym.id,
+          specialization: [randomChoice(fitnessGoals), randomChoice(fitnessGoals)],
+          bio: `Certified personal trainer with 5+ years of experience specializing in ${randomChoice(fitnessGoals)}.`,
+          certifications: ['NASM CPT', 'CPR/AED'],
+          hourlyRate: randomInt(50, 150),
+          isAvailable: true,
+          rating: parseFloat((3.5 + Math.random() * 1.5).toFixed(1)),
+          totalSessions: randomInt(10, 200),
+        },
+      });
+
+      trainers.push(trainer);
+    }
+  }
+  
+  console.log(`✅ Created ${trainers.length} trainers`);
+
+  // Create Fitness Classes
+  console.log('📅 Creating fitness classes...');
+  const classNames = [
+    'Morning HIIT', 'Power Yoga', 'Strength Training', 'CrossFit WOD',
+    'Spin Class', 'Pilates Core', 'Boxing Fitness', 'Zumba Dance',
+    'Boot Camp', 'Kettlebell Swing', 'TRX Suspension', 'Barre Fitness'
+  ];
+  
+  const categories = ['Cardio', 'Strength', 'Flexibility', 'HIIT', 'Dance', 'Yoga'];
+  
+  const classes = [];
+  for (const gym of gyms) {
+    const gymTrainers = trainers.filter(t => t.gymId === gym.id);
+    
+    for (let i = 0; i < 8; i++) {
+      const startTime = new Date();
+      startTime.setDate(startTime.getDate() + i);
+      startTime.setHours(randomInt(6, 20), 0, 0, 0);
+      
+      const endTime = new Date(startTime);
+      endTime.setMinutes(endTime.getMinutes() + randomInt(45, 90));
+      
+      const fitnessClass = await prisma.fitnessClass.create({
+        data: {
+          gymId: gym.id,
+          trainerId: randomChoice(gymTrainers).id,
+          name: randomChoice(classNames),
+          category: randomChoice(categories),
+          level: randomChoice(['BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'ALL_LEVELS']),
+          duration: randomInt(45, 90),
+          capacity: randomInt(10, 25),
+          startTime,
+          endTime,
+          recurrence: 'WEEKLY',
+          isActive: true,
+        },
+      });
+
+      // Add some bookings
+      const classMembers = randomChoice(
+        allMembers.filter(m => m.gymId === gym.id && m.status === 'ACTIVE')
+      ).slice(0, randomInt(5, 15));
+      
+      for (const member of classMembers) {
+        await prisma.classBooking.create({
+          data: {
+            classId: fitnessClass.id,
+            memberId: member.id,
+            status: randomChoice(['CONFIRMED', 'CONFIRMED', 'CONFIRMED', 'CANCELLED']),
+            checkedIn: Math.random() > 0.3,
+          },
+        });
+      }
+
+      classes.push(fitnessClass);
+    }
+  }
+  
+  console.log(`✅ Created ${classes.length} fitness classes`);
+
+  // Create Payments (last 3 months)
+  console.log('💰 Creating payment records...');
+  const payments = [];
+  
+  for (const member of allMembers) {
+    const subscription = await prisma.subscription.findFirst({
+      where: { memberId: member.id },
+    });
+    
+    if (subscription) {
+      // Create 3 months of payment history
+      for (let i = 0; i < 3; i++) {
+        const paymentDate = new Date();
+        paymentDate.setMonth(paymentDate.getMonth() - i);
+        
+        payments.push(
+          prisma.payment.create({
+            data: {
+              subscriptionId: subscription.id,
+              amount: randomInt(2999, 9999) / 100, // $29.99 - $99.99
+              currency: 'USD',
+              status: randomChoice(['PAID', 'PAID', 'PAID', 'PENDING', 'FAILED']),
+              paymentDate,
+              dueDate: paymentDate,
+              paidAt: paymentDate,
+            },
+          })
+        );
+      }
+    }
+  }
+  
+  await Promise.all(payments);
+  console.log(`✅ Created ${payments.length} payment records`);
+
+  // Create AI Conversations
+  console.log('🤖 Creating AI conversations...');
+  const aiConversations = [];
+  
+  const sampleQuestions = [
+    'What\'s the best workout for weight loss?',
+    'How much protein should I eat to build muscle?',
+    'Can you create a beginner full-body workout?',
+    'What exercises help with lower back pain?',
+    'How often should I train each muscle group?',
+    'Should I do cardio before or after weights?',
+    'What\'s a good pre-workout meal?',
+    'How do I improve my squat form?',
+  ];
+  
+  for (let i = 0; i < 50; i++) {
+    const member = randomChoice(activeMembers);
+    
+    aiConversations.push(
+      prisma.aIConversation.create({
+        data: {
+          userId: member.userId,
+          role: 'user',
+          message: randomChoice(sampleQuestions),
+          metadata: { page: 'ai-trainer' },
+        },
+      }),
+      prisma.aIConversation.create({
+        data: {
+          userId: member.userId,
+          role: 'assistant',
+          message: 'Great question! Based on your goals, I recommend focusing on compound movements like squats, deadlifts, and bench press. These exercises work multiple muscle groups simultaneously, maximizing calorie burn and muscle development. Would you like me to create a specific workout plan for you?',
+        },
+      })
+    );
+  }
+  
+  await Promise.all(aiConversations);
+  console.log(`✅ Created ${aiConversations.length} AI conversation entries`);
+
+  // Summary
+  console.log('\n🎉 Demo data seeding completed successfully!\n');
+  console.log('📊 Summary:');
+  console.log(`   • 1 Admin user`);
+  console.log(`   • 3 Gym locations`);
+  console.log(`   • ${allMembers.length} Members`);
+  console.log(`   • ${trainers.length} Trainers`);
+  console.log(`   • ${classes.length} Fitness classes`);
+  console.log(`   • ${attendanceRecords.length} Attendance records`);
+  console.log(`   • ${payments.length} Payment records`);
+  console.log(`   • ${aiConversations.length} AI conversations\n`);
+  
+  console.log('🔐 Demo Credentials:');
+  console.log('   Admin: admin@fitaipro.com / Admin123!');
+  console.log('   Gym Owner: owner.downtown@fitlife.com / Owner123!');
+  console.log('   Member: [any member email] / Member123!\n');
+}
+
+main()
+  .catch((e) => {
+    console.error('❌ Error seeding demo data:', e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

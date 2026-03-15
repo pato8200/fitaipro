@@ -1,60 +1,46 @@
-// Next.js API Route Wrapper for FitAI Pro Backend
-import type { NextApiRequest, NextApiResponse } from 'next';
+// Next.js App Router API Route for Auth
+import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
 const prisma = new PrismaClient();
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
-  const { method } = req;
-
-  // CORS Headers
-  res.setHeader('Access-Control-Allow-Credentials', true);
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,DELETE,PATCH,POST,PUT,OPTIONS');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, Authorization'
-  );
-
-  if (method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
+export async function POST(request: NextRequest) {
   try {
-    if (req.url?.includes('/api/auth/login') && method === 'POST') {
-      await handleLogin(req, res);
-    } else if (req.url?.includes('/api/auth/register') && method === 'POST') {
-      await handleRegister(req, res);
-    } else if (req.url?.includes('/health')) {
-      res.status(200).json({ 
-        status: 'ok', 
-        timestamp: new Date().toISOString(),
-        environment: process.env.NODE_ENV || 'development'
-      });
+    const body = await request.json();
+    const { email, password, action } = body;
+    
+    // Determine route from query param or body
+    const url = new URL(request.url);
+    const route = url.searchParams.get('route') || action || 'login';
+    
+    console.log('📍 Auth API called - Route:', route);
+
+    if (route === 'register') {
+      return await handleRegister(body);
     } else {
-      res.status(404).json({ error: 'Route not found' });
+      return await handleLogin(body);
     }
   } catch (error: any) {
     console.error('API Error:', error);
-    res.status(500).json({ 
-      error: 'Internal server error',
-      message: error.message 
-    });
+    return NextResponse.json(
+      { error: 'Internal server error', message: error.message },
+      { status: 500 }
+    );
   }
 }
 
-async function handleLogin(req: NextApiRequest, res: NextApiResponse) {
-  console.log('🔐 Login attempt:', req.body.email);
+async function handleLogin(body: any) {
+  console.log('🔐 Login attempt:', body.email);
   
-  const { email, password } = req.body;
+  const { email, password } = body;
 
   if (!email || !password) {
-    return res.status(400).json({ error: 'Email and password required' });
+    return NextResponse.json(
+      { error: 'Email and password required' },
+      { status: 400 }
+    );
   }
 
   const user = await prisma.user.findUnique({
@@ -70,14 +56,20 @@ async function handleLogin(req: NextApiRequest, res: NextApiResponse) {
 
   if (!user) {
     console.log('❌ User not found:', email);
-    return res.status(401).json({ error: 'Invalid credentials' });
+    return NextResponse.json(
+      { error: 'Invalid credentials' },
+      { status: 401 }
+    );
   }
 
   const isValidPassword = await bcrypt.compare(password, user.password);
 
   if (!isValidPassword) {
     console.log('❌ Invalid password for:', email);
-    return res.status(401).json({ error: 'Invalid credentials' });
+    return NextResponse.json(
+      { error: 'Invalid credentials' },
+      { status: 401 }
+    );
   }
 
   const token = generateToken(user.id);
@@ -93,7 +85,7 @@ async function handleLogin(req: NextApiRequest, res: NextApiResponse) {
     },
   });
 
-  res.status(200).json({
+  return NextResponse.json({
     user: {
       id: user.id,
       email: user.email,
@@ -109,11 +101,14 @@ async function handleLogin(req: NextApiRequest, res: NextApiResponse) {
   });
 }
 
-async function handleRegister(req: NextApiRequest, res: NextApiResponse) {
-  const { email, password, firstName, lastName, role, gymId } = req.body;
+async function handleRegister(body: any) {
+  const { email, password, firstName, lastName, role, gymId } = body;
 
   if (!email || !password || !firstName || !lastName) {
-    return res.status(400).json({ error: 'Missing required fields' });
+    return NextResponse.json(
+      { error: 'Missing required fields' },
+      { status: 400 }
+    );
   }
 
   const existingUser = await prisma.user.findUnique({
@@ -121,7 +116,10 @@ async function handleRegister(req: NextApiRequest, res: NextApiResponse) {
   });
 
   if (existingUser) {
-    return res.status(409).json({ error: 'Email already registered' });
+    return NextResponse.json(
+      { error: 'Email already registered' },
+      { status: 409 }
+    );
   }
 
   const hashedPassword = await bcrypt.hash(password, 12);
@@ -151,7 +149,7 @@ async function handleRegister(req: NextApiRequest, res: NextApiResponse) {
     },
   });
 
-  res.status(201).json({
+  return NextResponse.json({
     user: {
       id: user.id,
       email: user.email,

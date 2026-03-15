@@ -18,7 +18,7 @@ export default function LoginPage() {
 
     try {
       // Use relative URL - Next.js will handle it
-      const response = await fetch('/api/auth', {
+      const response = await fetch('/api/auth?route=login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),

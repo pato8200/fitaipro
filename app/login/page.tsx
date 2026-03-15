@@ -17,8 +17,8 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const apiUrl = 'https://fitai-pro-api.onrender.com';
-      const response = await fetch(`${apiUrl}/api/auth/login`, {
+      // Use relative URL - Next.js will handle it
+      const response = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -30,6 +30,8 @@ export default function LoginPage() {
         throw new Error(data.message || 'Login failed');
       }
 
+      console.log('Login sucesso:', data);
+
       // Store token
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
@@ -37,6 +39,7 @@ export default function LoginPage() {
       // Redirect to dashboard
       router.push('/dashboard');
     } catch (err: any) {
+      console.error('Erro no login:', err);
       setError(err.message || 'Invalid credentials');
     } finally {
       setLoading(false);

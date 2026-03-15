@@ -57,17 +57,22 @@ app.use('/api/auth/', authLimiter);
 
 // Enhanced CORS for production
 const allowedOrigins = process.env.NODE_ENV === 'production'
-  ? [process.env.FRONTEND_URL || 'https://yourdomain.com'].filter(Boolean)
+  ? [process.env.FRONTEND_URL || 'https://fitaipro-roan.vercel.app', 'https://fitai-pro-api.onrender.com'].filter(Boolean)
   : ['http://localhost:3000', 'http://localhost:3001'];
+
+console.log('🔒 Allowed origins:', allowedOrigins);
 
 app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     
-    if (allowedOrigins.indexOf(origin) !== -1 || origin.includes('localhost')) {
+    console.log('CORS check - Origin:', origin);
+    
+    if (allowedOrigins.indexOf(origin) !== -1 || origin.includes('localhost') || origin.includes('vercel.app')) {
       callback(null, true);
     } else {
+      console.log('❌ CORS blocked:', origin);
       callback(new Error('Not allowed by CORS'));
     }
   },
